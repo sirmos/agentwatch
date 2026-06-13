@@ -204,6 +204,12 @@ def feed():
     r = splunk_search("search index=agentwatch anomaly=true | sort -_time | head 25 | table timestamp, agent_name, tool_called, severity, anomaly_type, description")
     return jsonify(r)
 
+
+@app.route("/report")
+def report():
+    from report.generate_report import generate_report
+    return generate_report()
+
 if __name__=="__main__":
     print("\n🔍 AgentWatch Dashboard running!")
     print("   Visit port 5000 in your Ports tab\n")
