@@ -1,0 +1,6 @@
+requests==2.32.5
+python-dotenv==1.2.2
+faker==40.23.0
+flask==3.1.1
+flask-cors==5.0.1
+urllib3==2.6.3

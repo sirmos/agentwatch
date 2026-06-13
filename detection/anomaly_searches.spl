@@ -1,0 +1,58 @@
+| Comment =====================================================
+| AgentWatch - SPL Anomaly Detection Queries
+| Use these in Splunk to power AgentWatch detection
+| =====================================================
+
+| Comment --- 1. Unauthorized Tool Access ---
+index=agentwatch authorized=false
+| stats count by agent_name, tool_called, agent_role
+| where count > 0
+| sort -count
+
+| Comment --- 2. Data Exfiltration Detection ---
+index=agentwatch tool_called=export_all_data
+| stats sum(data_volume_mb) as total_mb, count by agent_name
+| where total_mb > 1000
+| sort -total_mb
+
+| Comment --- 3. Privilege Escalation ---
+index=agentwatch tool_called=modify_permissions
+| table _time, agent_name, agent_role, source_ip, session_id
+| sort -_time
+
+| Comment --- 4. Credential Access ---
+index=agentwatch tool_called=access_credentials
+| table _time, agent_name, agent_role, source_ip
+| sort -_time
+
+| Comment --- 5. Excessive API Calls (last 5 min) ---
+index=agentwatch
+| where call_count_last_5min > 50
+| stats max(call_count_last_5min) as peak_calls by agent_name
+| sort -peak_calls
+
+| Comment --- 6. Off-Hours Activity ---
+index=agentwatch anomaly_type=off_hours_activity
+| stats count by agent_name, tool_called
+| sort -count
+
+| Comment --- 7. Agent Risk Scorecard ---
+index=agentwatch
+| eval is_critical=if(severity="CRITICAL",1,0)
+| eval is_high=if(severity="HIGH",1,0)
+| eval is_anomaly=if(anomaly="true",1,0)
+| stats count as total,
+        sum(is_anomaly) as anomalies,
+        sum(is_critical) as critical_count,
+        sum(is_high) as high_count by agent_name
+| eval risk_score=(critical_count*10)+(high_count*5)+(anomalies*2)
+| eval risk_level=case(risk_score>=70,"CRITICAL",risk_score>=40,"HIGH",risk_score>=20,"MEDIUM",true(),"LOW")
+| sort -risk_score
+| table agent_name, total, anomalies, critical_count, high_count, risk_score, risk_level
+
+| Comment --- 8. Overall Environment Risk ---
+index=agentwatch
+| stats count as total, sum(eval(if(anomaly="true",1,0))) as anomalies,
+        sum(eval(if(severity="CRITICAL",1,0))) as critical
+| eval anomaly_rate=round(anomalies/total*100,1)
+| eval risk_score=min(100,(critical*10)+(anomalies*2))
